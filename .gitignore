@@ -3,6 +3,8 @@
 data/*
 .idea/
 !.gitkeep
+.venv
+.DS_Store
 
 ## PYTHON SPECIFIC GITIGNORE
 
