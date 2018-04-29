@@ -10,13 +10,24 @@ use the following command to create a new virtual environment:
 
 Afterwards, activate the environment using:
 
-*Windows*: ```source activate venv\urbansound\bin\activate```
+*Windows*: ```venv\urbansound\Scripts\activate.bat```  
+*Mac*: ```source activate venv\urbansound\bin\activate```
 
 Then, install the required packages using:
 
 ```pip install -r requirements.txt```
 
 Now you're all set!
+
+## Adding a new package
+
+You can use pip to install a new package:
+
+```pip install <package-name>```
+
+When doing so, always remember to update the requirements.txt by using the command
+
+```pip freeze > requirements.txt```
 
 ## TODO
 - feature extraction using librosa 
