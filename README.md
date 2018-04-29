@@ -1,6 +1,23 @@
 # urban-sound-CO2
 Urban Sound Challenge project as part of our university course "Computational Intelligence 2".
 
+## Setup
+
+After cloning or pulling the repository, use your shell to navigate to the project folder and 
+use the following command to create a new virtual environment:
+
+```python -m venv venv\urbansound```
+
+Afterwards, activate the environment using:
+
+*Windows*: ```source activate venv\urbansound\bin\activate```
+
+Then, install the required packages using:
+
+```pip install -r requirements.txt```
+
+Now you're all set!
+
 ## TODO
 - feature extraction using librosa 
 - implementation of three neural nets in keras
