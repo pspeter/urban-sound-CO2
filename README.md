@@ -30,7 +30,7 @@ When doing so, always remember to update the requirements.txt by using the comma
 ```pip freeze > requirements.txt```
 
 ## TODO
-- feature extraction using librosa 
+- feature extraction using librosa (done!)
 - implementation of three neural nets in keras
   - MLP
   - RNN
