@@ -22,10 +22,10 @@ class UrbanSoundData:
     corresponding labels for train and test data.
     """
 
-    def __init__(self, data_dir: str=os.path.join("..", "data")):
+    def __init__(self, data_dir: str=os.path.join("..", "data"), n_mfcc: int=20):
         self.data_dir = data_dir
 
-        mfcc_path = os.path.join(self.data_dir, "mfcc", "mfcc_dict.z")
+        mfcc_path = os.path.join(self.data_dir, "mfcc", f"mfcc_{n_mfcc}.z")
         try:
             self.features = joblib.load(mfcc_path)
         except FileNotFoundError:
@@ -99,7 +99,7 @@ class UrbanSoundExtractor:
         ensure_dir(data_dir)
         self.data_dir = data_dir
 
-    def prepare_data(self, n_mfccs: int = 128) -> dict:
+    def prepare_data(self, n_mfccs: int = 20) -> dict:
         self.download_data()
         self.extract_archive()
         return self.extract_mfccs(n_mfccs)
@@ -170,7 +170,7 @@ class UrbanSoundExtractor:
                 os.remove(archive_path)
             raise
 
-    def extract_mfccs(self, n_mfccs: int = 128) -> dict:
+    def extract_mfccs(self, n_mfccs: int = 20) -> dict:
         logging.debug(f"Extracting MFCC features")
 
         sound_dir = os.path.join(self.data_dir, "sounds")
