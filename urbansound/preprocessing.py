@@ -1,17 +1,17 @@
-import requests
-from zipfile import ZipFile
-import os
 import logging
+import os
 from glob import glob
-import joblib
-from typing import Tuple, List
+from typing import Tuple
+from zipfile import ZipFile
 
-from tqdm import tqdm
+import joblib
 import librosa
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+import requests
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from tqdm import tqdm
 
 from utils import ensure_dir, cached_property
 
@@ -113,6 +113,10 @@ class UrbanSoundExtractor:
             logging.info("Archive already downloaded, skipping")
             return
 
+        if not self._confirm_download():
+            logging.info("User skipped download")
+            return
+
         raw_data = requests.get(self._DATA_URL, stream=True)
         raw_data_size = int(raw_data.headers['content-length'])
 
@@ -129,6 +133,17 @@ class UrbanSoundExtractor:
             if os.path.isfile(archive_path):
                 os.remove(archive_path)
             raise
+
+    @staticmethod
+    def _confirm_download() -> bool:
+        print("Are you sure you want to download the data archive? (download size is about 1.8GB)")
+        answer = ""
+        while not answer.startswith("y") and not answer.startswith("n"):
+            answer = input("(y/[n]) >> ").lower()
+            if answer == "":
+                break
+
+        return answer.startswith("y")
 
     def extract_archive(self, force_extract: bool=False) -> None:
         logging.debug(f"Extracting {self._ARCHIVE_NAME}")
