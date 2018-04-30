@@ -1,4 +1,4 @@
-from model import MlpModel, CnnModel
+from model import MLPModel, CNNModel, LSTMModel
 from preprocessing import UrbanSoundData, UrbanSoundExtractor
 import logging
 from keras import backend as K
@@ -21,6 +21,7 @@ if __name__ == "__main__":
     #mlp.train(epochs=100, verbose=0)
     #mlp.visualize_training()
 
-    cnn = CnnModel(data)
-    cnn.train(batch_size=8, epochs=50, verbose=1)
-    cnn.visualize_training()
+    lstm = LSTMModel(data)
+    lstm.train(batch_size=8, epochs=50, verbose=1)
+    lstm.evaluate()
+    lstm.visualize_training()

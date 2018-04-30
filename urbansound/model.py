@@ -1,15 +1,16 @@
-from typing import Tuple, Callable, List, Optional
 import logging
+from typing import Tuple, Optional
 
-from keras.models import Sequential, Model
-from keras.layers import Dense, BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, Flatten
-from keras.callbacks import EarlyStopping
 import numpy as np
+from keras.callbacks import EarlyStopping
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Activation, Dropout, TimeDistributed
+from keras.layers import Dense, LSTM, BatchNormalization
+from keras.models import Sequential, Model
 
 from preprocessing import UrbanSoundData
 
 NUM_CLASSES = 10
+
 
 class NotTrainedError(Exception):
     pass
@@ -63,8 +64,8 @@ class BaseModel:
     def visualize_training(self):
         import matplotlib.pyplot as plt
         #  accuracy history
-        plt.plot(self.history.history['acc'])
-        plt.plot(self.history.history['val_acc'])
+        plt.plot(self.history.history['categorical_accuracy'])
+        plt.plot(self.history.history['val_categorical_accuracy'])
         plt.title('model accuracy')
         plt.ylabel('accuracy')
         plt.xlabel('epoch')
@@ -88,7 +89,7 @@ class BaseModel:
         raise NotImplementedError()
 
 
-class MlpModel(BaseModel):
+class MLPModel(BaseModel):
     def __init__(self, data: UrbanSoundData):
         super().__init__(data)
 
@@ -101,7 +102,7 @@ class MlpModel(BaseModel):
         model.add(Dense(NUM_CLASSES, activation="softmax"))
         model.compile(optimizer="adam",
                       loss="categorical_crossentropy",
-                      metrics=["accuracy"])
+                      metrics=["categorical_accuracy"])
         return model
 
     def _process_features(self, features: np.ndarray) -> np.ndarray:
@@ -109,7 +110,7 @@ class MlpModel(BaseModel):
         return features.reshape(features.shape[0], -1)
 
 
-class CnnModel(BaseModel):
+class CNNModel(BaseModel):
     def __init__(self, data: UrbanSoundData):
         super().__init__(data)
 
@@ -137,10 +138,38 @@ class CnnModel(BaseModel):
         model.add(Dense(NUM_CLASSES, activation="softmax"))
         model.compile(optimizer="adam",
                       loss="categorical_crossentropy",
-                      metrics=["accuracy"])
+                      metrics=["categorical_accuracy"])
         return model
 
     def _process_features(self, features: np.ndarray) -> np.ndarray:
-        """Reshape 2D data into a 3D matrix with shape[-1] == 1."""
+        """Reshape 2D data into a 3D matrix with shape[-1] == 1.
+        This last dimension is only 1 wide because we have only one
+        channel (i.e. no color information)"""
         return features.reshape((*features.shape, 1))
+
+
+class LSTMModel(BaseModel):
+    def __init__(self, data: UrbanSoundData):
+        super().__init__(data)
+
+    def _model(self, input_shape: Tuple[int]) -> Model:
+        model = Sequential()
+
+        model.add(LSTM(512, input_shape=input_shape, return_sequences=True))
+
+        model.add(LSTM(512, input_shape=input_shape))
+        model.add(Dropout(0.25))
+
+        model.add(Dense(NUM_CLASSES, activation="softmax"))
+        model.compile(optimizer="adam",
+                      loss="categorical_crossentropy",
+                      metrics=["categorical_accuracy"])
+        return model
+
+    def _process_features(self, features: np.ndarray) -> np.ndarray:
+        """For LSTMs, the input should be of shape (batch_size, time steps, input_dim).
+        That means we need to swap the 2nd and 3rd axis.
+        """
+        print(np.swapaxes(features, 1, 2).shape)
+        return np.swapaxes(features, 1, 2)
 
