@@ -54,7 +54,7 @@ class BaseModel:
         features, labels = self.data.test_data
         features = self._process_features(features)
 
-        self.model.evaluate(features, labels)
+        return self.model.evaluate(features, labels)
 
     def predict(self):
         if self.model is None:

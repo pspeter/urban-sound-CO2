@@ -11,7 +11,6 @@ if __name__ == "__main__":
     config.gpu_options.per_process_gpu_memory_fraction = 0.1
     K.set_session(tf.Session(config=config))
 
-
     logger = logging.getLogger()
     logger.setLevel("WARN")
     UrbanSoundExtractor().prepare_data()
@@ -21,7 +20,12 @@ if __name__ == "__main__":
     #mlp.train(epochs=100, verbose=0)
     #mlp.visualize_training()
 
-    lstm = LSTMModel(data)
-    lstm.train(batch_size=8, epochs=50, verbose=1)
-    lstm.evaluate()
-    lstm.visualize_training()
+    cnn = CNNModel(data)
+    cnn.train(batch_size=8, epochs=50, verbose=1)
+    print(cnn.evaluate())
+    cnn.visualize_training()
+
+    #lstm = LSTMModel(data)
+    #lstm.train(batch_size=8, epochs=50, verbose=1)
+    #print(lstm.evaluate())
+    #lstm.visualize_training()
