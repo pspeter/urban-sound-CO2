@@ -99,10 +99,10 @@ class UrbanSoundExtractor:
         ensure_dir(data_dir)
         self.data_dir = data_dir
 
-    def prepare_data(self) -> dict:
+    def prepare_data(self, n_mfccs: int = 128) -> dict:
         self.download_data()
         self.extract_archive()
-        return self.extract_mfccs()
+        return self.extract_mfccs(n_mfccs)
 
     def download_data(self) -> None:
         logging.debug(f"Downloading {self._ARCHIVE_NAME} from {self._DATA_URL}")
@@ -170,11 +170,11 @@ class UrbanSoundExtractor:
                 os.remove(archive_path)
             raise
 
-    def extract_mfccs(self) -> dict:
+    def extract_mfccs(self, n_mfccs: int = 128) -> dict:
         logging.debug(f"Extracting MFCC features")
 
         sound_dir = os.path.join(self.data_dir, "sounds")
-        mfcc_path = os.path.join(self.data_dir, "mfcc", "mfcc_dict.z")
+        mfcc_path = os.path.join(self.data_dir, "mfcc", f"mfcc_{n_mfccs}.z")
 
         if os.path.isfile(mfcc_path):
             logging.info("MFCCs already extracted, skipping")
@@ -185,7 +185,7 @@ class UrbanSoundExtractor:
 
         for file in tqdm(glob(os.path.join(sound_dir, "*.wav")), desc="MFCC"):
             sound_id = file[len(sound_dir + "/"):-len(".wav")]
-            mfcc = librosa.feature.mfcc(*librosa.load(file))
+            mfcc = librosa.feature.mfcc(*librosa.load(file), n_mfcc=n_mfccs)
             mfcc = librosa.util.fix_length(mfcc, max_sound_length)
             mfcc_dict[int(sound_id)] = mfcc
 
