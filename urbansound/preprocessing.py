@@ -9,6 +9,7 @@ import librosa
 import numpy as np
 import pandas as pd
 import requests
+from joblib import Parallel, delayed
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from tqdm import tqdm
@@ -180,15 +181,25 @@ class UrbanSoundExtractor:
             logging.info("MFCCs already extracted, skipping")
             return joblib.load(mfcc_path)
 
-        mfcc_dict = {}
-        max_sound_length = 173
+        n_cpu = os.cpu_count()
+        tuples = Parallel(n_jobs=n_cpu)(
+            delayed(_extract_mfcc)(file, sound_dir, n_mfccs)
+            for file in tqdm(glob(os.path.join(sound_dir, "*.wav")), desc="MFCC")
+        )
 
-        for file in tqdm(glob(os.path.join(sound_dir, "*.wav")), desc="MFCC"):
-            sound_id = file[len(sound_dir + "/"):-len(".wav")]
-            mfcc = librosa.feature.mfcc(*librosa.load(file), n_mfcc=n_mfccs)
-            mfcc = librosa.util.fix_length(mfcc, max_sound_length)
-            mfcc_dict[int(sound_id)] = mfcc
+        mfcc_dict = dict(tuples)
 
         joblib.dump(mfcc_dict, mfcc_path)
 
         return mfcc_dict
+
+
+# needs to be a module top-level function to support multi-processing
+# don't move this function into a class
+def _extract_mfcc(file, sound_dir, n_mfccs):
+    max_sound_length = 173
+    mfcc_dict = {}
+    sound_id = file[len(sound_dir + "/"):-len(".wav")]
+    mfcc = librosa.feature.mfcc(*librosa.load(file), n_mfcc=n_mfccs)
+    mfcc = librosa.util.fix_length(mfcc, max_sound_length)
+    return sound_id, mfcc
