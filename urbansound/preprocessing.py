@@ -1,8 +1,9 @@
-import logging
+import warnings
 import os
 from glob import glob
 from typing import Tuple
 from zipfile import ZipFile
+from typing import Dict
 
 import joblib
 import librosa
@@ -23,18 +24,16 @@ class UrbanSoundData:
     corresponding labels for train and test data.
     """
 
-    def __init__(self, data_dir: str=os.path.join("..", "data"), n_mfcc: int=20):
+    def __init__(self, data_dir: str = os.path.join("..", "data"), n_mfcc: int = 20):
         self.data_dir = data_dir
 
         mfcc_path = os.path.join(self.data_dir, "mfcc", f"mfcc_{n_mfcc}.z")
         try:
             self.features = joblib.load(mfcc_path)
         except FileNotFoundError:
-            logging.warning("Data not loaded yet. Use UrbanSoundExtractor to load data first")
-            logging.warning("Creating UrbanSoundExtractor to prepare data")
+            warnings.warn("Data not loaded yet. Using UrbanSoundExtractor to load data first")
             extractor = UrbanSoundExtractor(data_dir)
             self.features = extractor.prepare_data()
-            logging.info("Data loaded and prepared")
 
         self.train_short_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_short.csv"))
         self.train_long_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_long.csv"))
@@ -47,7 +46,7 @@ class UrbanSoundData:
 
         :returns: train_features, test_features, train_labels, test_labels
         """
-        return train_test_split(*self._get_data(self.train_short_labels))
+        return train_test_split(*self._transform_data(self.train_short_labels))
 
     @cached_property
     def train_data_long(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -56,7 +55,7 @@ class UrbanSoundData:
 
         :returns: train_features, test_features, train_labels, test_labels
         """
-        return train_test_split(*self._get_data(self.train_long_labels))
+        return train_test_split(*self._transform_data(self.train_long_labels))
 
     @cached_property
     def test_data(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -65,9 +64,9 @@ class UrbanSoundData:
 
         :returns: feature, labels
         """
-        return self._get_data(self.test_labels)
+        return self._transform_data(self.test_labels)
 
-    def _get_data(self, label_data_frame: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
+    def _transform_data(self, label_data_frame: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         """Picks out features from self.features whose ID is in the label_data_frame and
         converts their class label into one-hot vectors.
 
@@ -96,7 +95,7 @@ class UrbanSoundExtractor:
     _DATA_URL = "https://filebox.fhooecloud.at/s/rLADyyMceM77XkU/download"
     _ARCHIVE_NAME = "data.zip"
 
-    def __init__(self, data_dir: str=os.path.join("..", "data")):
+    def __init__(self, data_dir: str = os.path.join("..", "data")):
         ensure_dir(data_dir)
         self.data_dir = data_dir
 
@@ -106,16 +105,15 @@ class UrbanSoundExtractor:
         return self.extract_mfccs(n_mfccs)
 
     def download_data(self) -> None:
-        logging.debug(f"Downloading {self._ARCHIVE_NAME} from {self._DATA_URL}")
 
         archive_path = os.path.join(self.data_dir, self._ARCHIVE_NAME)
 
         if os.path.isfile(archive_path):
-            logging.info("Archive already downloaded, skipping")
+            warnings.warn("Archive already downloaded, skipping", RuntimeWarning)
             return
 
         if not self._confirm_download():
-            logging.info("User skipped download")
+            warnings.warn("User skipped download", RuntimeWarning)
             return
 
         raw_data = requests.get(self._DATA_URL, stream=True)
@@ -130,7 +128,7 @@ class UrbanSoundExtractor:
                         fd.write(chunk)
                         progress_bar.update(len(chunk))
         except KeyboardInterrupt:
-            logging.warning("User interrupted download, deleting incomplete archive")
+            warnings.warn("User interrupted download, deleting incomplete archive", RuntimeWarning)
             if os.path.isfile(archive_path):
                 os.remove(archive_path)
             raise
@@ -146,16 +144,14 @@ class UrbanSoundExtractor:
 
         return answer.startswith("y")
 
-    def extract_archive(self, force_extract: bool=False) -> None:
-        logging.debug(f"Extracting {self._ARCHIVE_NAME}")
-
+    def extract_archive(self, force_extract: bool = False) -> None:
         archive_path = os.path.join(self.data_dir, self._ARCHIVE_NAME)
         sound_dir = os.path.join(self.data_dir, "sounds")
         label_dir = os.path.join(self.data_dir, "labels")
 
         # TODO: Better way to detect already extracted archive
         if not force_extract and os.path.isfile(os.path.join(sound_dir, "0.wav")):
-            logging.info("Archive already extracted, skipping")
+            warnings.warn("Archive already extracted, skipping", RuntimeWarning)
             return
 
         try:
@@ -166,19 +162,17 @@ class UrbanSoundExtractor:
                     elif member_name.endswith(".csv"):
                         archive.extract(member_name, label_dir)
         except KeyboardInterrupt:
-            logging.warning("User interrupted extraction. Extracted files will not be deleted")
+            warnings.warn("User interrupted extraction. Extracted files will not be deleted", RuntimeWarning)
             if os.path.isfile(archive_path):
                 os.remove(archive_path)
             raise
 
-    def extract_mfccs(self, n_mfccs: int = 20) -> dict:
-        logging.debug(f"Extracting MFCC features")
-
+    def extract_mfccs(self, n_mfccs: int = 20) -> Dict[int, np.ndarray]:
         sound_dir = os.path.join(self.data_dir, "sounds")
         mfcc_path = os.path.join(self.data_dir, "mfcc", f"mfcc_{n_mfccs}.z")
 
         if os.path.isfile(mfcc_path):
-            logging.info("MFCCs already extracted, skipping")
+            warnings.warn("MFCCs already extracted, skipping", RuntimeWarning)
             return joblib.load(mfcc_path)
 
         n_cpu = os.cpu_count()
