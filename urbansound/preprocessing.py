@@ -105,7 +105,9 @@ class UrbanSoundExtractor:
         return self.extract_mfccs(n_mfccs)
 
     def download_data(self) -> None:
-
+        """Downloads the data archive from the university filebox and saves
+        it in *self.data_dir*
+        """
         archive_path = os.path.join(self.data_dir, self._ARCHIVE_NAME)
 
         if os.path.isfile(archive_path):
@@ -145,6 +147,9 @@ class UrbanSoundExtractor:
         return answer.startswith("y")
 
     def extract_archive(self, force_extract: bool = False) -> None:
+        """Extracts the contents of the zip archive and puts it into the
+        sounds and labels subdirectories.
+        """
         archive_path = os.path.join(self.data_dir, self._ARCHIVE_NAME)
         sound_dir = os.path.join(self.data_dir, "sounds")
         label_dir = os.path.join(self.data_dir, "labels")
@@ -168,6 +173,11 @@ class UrbanSoundExtractor:
             raise
 
     def extract_mfccs(self, n_mfccs: int = 20) -> Dict[int, np.ndarray]:
+        """Loads the sound files from the sounds subdirectory and calculates
+        the mel-frequency spectrum of each file. Optionally, it will perform
+        random pitch and frequency augmentations to the data beforehand.
+        The results are saved into a compressed .z file in the mfcc subdirectory.
+        """
         sound_dir = os.path.join(self.data_dir, "sounds")
         mfcc_path = os.path.join(self.data_dir, "mfcc", f"mfcc_{n_mfccs}.z")
 
@@ -190,10 +200,10 @@ class UrbanSoundExtractor:
 
 # needs to be a module top-level function to support multi-processing
 # don't move this function into a class
-def _extract_mfcc(file, sound_dir, n_mfccs):
+def _extract_mfcc(file, sound_dir: str, n_mfccs: int) -> Tuple[int, np.ndarray]:
     max_sound_length = 173
-    mfcc_dict = {}
     sound_id = file[len(sound_dir + "/"):-len(".wav")]
+
     mfcc = librosa.feature.mfcc(*librosa.load(file), n_mfcc=n_mfccs)
     mfcc = librosa.util.fix_length(mfcc, max_sound_length)
     return sound_id, mfcc
