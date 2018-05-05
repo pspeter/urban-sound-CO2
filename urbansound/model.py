@@ -47,14 +47,16 @@ class BaseModel:
         input_shape = train_features.shape[1:]
         self.model = self._model(input_shape)
 
-        early_stop_callback = EarlyStopping(patience=20, verbose=1)
-
-        self.history = self.model.fit(train_features, train_labels,
+        early_stop_callback = EarlyStopping(patience=10, verbose=1)
+        try:
+            self.history = self.model.fit(train_features, train_labels,
                                       epochs=epochs,
                                       batch_size=batch_size,
                                       validation_data=(test_features, test_labels),
                                       callbacks=[early_stop_callback],
                                       verbose=verbose)
+        except KeyboardInterrupt:
+            print("Early stopping (by user)")
         return self.history
 
     def evaluate(self):
