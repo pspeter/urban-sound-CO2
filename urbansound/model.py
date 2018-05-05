@@ -1,8 +1,12 @@
+import json
+import warnings
+from datetime import datetime
+from pathlib import Path
 from typing import Tuple, Optional, Sequence
 
 import numpy as np
-from keras.callbacks import EarlyStopping
-from keras.layers import Conv2D, MaxPooling2D, Flatten, Activation, Dropout, TimeDistributed
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Activation, Dropout
 from keras.layers import Dense, LSTM, BatchNormalization
 from keras.models import Sequential, Model
 
@@ -16,15 +20,13 @@ class NotTrainedError(Exception):
 
 
 class BaseModel:
-    """Base Model for """
-
-    def __init__(self, data: UrbanSoundData,
-                 hidden_layer_sizes: Sequence[int],
+    def __init__(self, data: UrbanSoundData, hidden_layer_sizes: Sequence[int],
                  dropout_probabilities: Optional[Sequence[Optional[int]]] = None,
-                 use_batch_norm: bool = True):
+                 use_batch_norm: bool = True, model_name: str = None):
         if dropout_probabilities is not None and \
                 len(hidden_layer_sizes) != len(dropout_probabilities):
-            raise ValueError("Length of hidden_layer_sizes and dropout_probabilities need to be the same")
+            raise ValueError("Length of hidden_layer_sizes and "
+                             "dropout_probabilities need to be the same")
 
         self.data = data
         self.hidden_layer_sizes = hidden_layer_sizes
@@ -33,30 +35,48 @@ class BaseModel:
         self.use_batch_norm = use_batch_norm
         self.model: Sequential = None
         self.history = None
+        now = datetime.now().isoformat('_', 'seconds')
+        self.name = model_name if model_name else \
+            f"{self.__class__.__name__}_{now}".replace(":", "-")
 
     def train(self, batch_size: Optional[int] = 32, epochs: Optional[int] = 10,
               short_data: Optional[bool] = False, verbose: int = 0):
         if short_data:
-            train_features, test_features, train_labels, test_labels = self.data.train_data_short
+            train_features, val_features, train_labels, val_labels = self.data.train_data_short
         else:
-            train_features, test_features, train_labels, test_labels = self.data.train_data_long
+            train_features, val_features, train_labels, val_labels = self.data.train_data_long
 
         train_features = self._process_features(train_features)
-        test_features = self._process_features(test_features)
+        val_features = self._process_features(val_features)
 
         input_shape = train_features.shape[1:]
         self.model = self._model(input_shape)
 
+        save_dir = Path("..", "model", f"{self.name}")
+
+        if save_dir.exists():
+            raise ValueError(f"Model with name {self.name} exists already")
+        else:
+            save_dir.mkdir(parents=True, exist_ok=True)
+
+        save_path = save_dir / "weights.epoch{epoch:02d}-loss{val_categorical_accuracy:.2f}.hdf5"
+        save_callback = ModelCheckpoint(str(save_path), "val_categorical_accuracy", save_best_only=True)
         early_stop_callback = EarlyStopping(patience=10, verbose=1)
+
+        with open(save_dir / "model_structure.json", "w") as model_struc_file:
+            json.dump(self.model.to_json(), model_struc_file)
+
         try:
             self.history = self.model.fit(train_features, train_labels,
-                                      epochs=epochs,
-                                      batch_size=batch_size,
-                                      validation_data=(test_features, test_labels),
-                                      callbacks=[early_stop_callback],
-                                      verbose=verbose)
+                                          epochs=epochs,
+                                          batch_size=batch_size,
+                                          validation_data=(val_features, val_labels),
+                                          callbacks=[early_stop_callback, save_callback],
+                                          verbose=verbose)
         except KeyboardInterrupt:
+            print()
             print("Early stopping (by user)")
+
         return self.history
 
     def evaluate(self):

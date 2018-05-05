@@ -12,12 +12,12 @@ import numpy as np
 import pandas as pd
 import requests
 from joblib import Parallel, delayed
+from scipy.sparse import csc_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from tqdm import tqdm
-from scipy.sparse import csc_matrix
 
-from utils import ensure_dir, cached_property
+from utils import ensure_dir
 
 
 class UrbanSoundData:
@@ -26,14 +26,14 @@ class UrbanSoundData:
     corresponding labels for train and test data.
     """
 
-    def __init__(self, data_dir: str = os.path.join("..", "data"), n_mfccs: int = 20):
+    def __init__(self, data_dir: str = os.path.join("..", "data"), n_mfccs: int = 20,
+                 n_augmentations: int = 2):
         self.data_dir = data_dir
 
-        mfcc_path = os.path.join(self.data_dir, "mfcc",  f"mfcc_{n_mfccs}_aug_5.z")
+        mfcc_path = os.path.join(self.data_dir, "mfcc", f"mfcc_{n_mfccs}_aug_{n_augmentations}.z")
         try:
             self.features: Dict[int, List[np.ndarray]] = joblib.load(mfcc_path)
         except FileNotFoundError:
-            warnings.warn("Data not loaded yet. Using UrbanSoundExtractor to load data first")
             extractor = UrbanSoundExtractor(data_dir)
             self.features = extractor.prepare_data()
 
@@ -41,7 +41,7 @@ class UrbanSoundData:
         self.train_long_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_long.csv"))
         self.test_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "test.csv"))
 
-    @cached_property
+    @property
     def train_data_short(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """ Returns four numpy arrays. The first two are train and test features, the second
         two are train and test labels. It uses all samples from 'train_short.csv'.
@@ -50,7 +50,7 @@ class UrbanSoundData:
         """
         return train_test_split(*self._transform_data(self.train_short_labels))
 
-    @cached_property
+    @property
     def train_data_long(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """ Returns four numpy arrays. The first two are train and test features, the second
         two are train and test labels. It uses all samples from 'train_long.csv'.
@@ -65,7 +65,8 @@ class UrbanSoundData:
         # for label containing all entries of the augmented list. The time and mfcc
         # dimensions (dimensions 2 and 3) are kept.
         # We do this after the train_test_split to not mix augmented images from one sample
-        # into both the train and validation sets
+        # into both the train and validation sets since they are sometimes very similar and
+        # could lead to overfitting.
         n_labels = features.shape[1]
         feature_train = feature_train.reshape(-1, *feature_train.shape[2:])
         feature_val = feature_val.reshape(-1, *feature_val.shape[2:])
@@ -76,14 +77,13 @@ class UrbanSoundData:
         label_val = np.repeat(label_val.toarray(), n_labels, axis=0)
         return feature_train, feature_val, label_train, label_val
 
-    @cached_property
+    @property
     def test_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """ Returns two numpy arrays. The first one contains the features, the second one
         the corresponding labels. It uses all samples from 'test.csv'.
 
         :returns: feature, labels
         """
-
         features, labels = self._transform_data(self.test_labels)
         # due to image augmentation, every id now has a list of one or more examples instead of
         # just one. All these examples have the same label, but instead of having one dimension
@@ -264,6 +264,7 @@ def audio_white_noise(audio, _):
     noise = np.random.normal(0, 0.005)
     return audio + noise
 
+
 def augment_audio(audio: np.ndarray, sample_rate: int,
                   n_augmentations: int) -> List[Tuple[np.ndarray, int]]:
     augmented_set = [audio]
@@ -274,4 +275,3 @@ def augment_audio(audio: np.ndarray, sample_rate: int,
         augmented_set.append(augment(audio, sample_rate))
 
     return augmented_set
-
