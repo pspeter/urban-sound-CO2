@@ -35,7 +35,7 @@ class UrbanSoundData:
             self.features: Dict[int, List[np.ndarray]] = joblib.load(mfcc_path)
         except FileNotFoundError:
             extractor = UrbanSoundExtractor(data_dir)
-            self.features = extractor.prepare_data()
+            self.features = extractor.prepare_data(n_mfccs, n_augmentations)
 
         self.train_short_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_short.csv"))
         self.train_long_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_long.csv"))
@@ -48,7 +48,7 @@ class UrbanSoundData:
 
         :returns: train_features, test_features, train_labels, test_labels
         """
-        return train_test_split(*self._transform_data(self.train_short_labels))
+        raise NotImplementedError()
 
     @property
     def train_data_long(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
