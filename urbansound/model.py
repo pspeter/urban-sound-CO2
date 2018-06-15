@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Tuple, Optional, Sequence
 
 import numpy as np
-from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Activation, Dropout
 from keras.layers import Dense, LSTM, BatchNormalization
 from keras.models import Sequential, Model
@@ -60,6 +60,8 @@ class BaseModel:
         save_path = save_dir / "weights.epoch{epoch:02d}-loss{val_categorical_accuracy:.2f}.hdf5"
         save_callback = ModelCheckpoint(str(save_path), "val_categorical_accuracy", save_best_only=True)
         early_stop_callback = EarlyStopping(patience=10, verbose=1)
+        tensorboard_callback = TensorBoard(str(save_dir / "logs"), write_grads=True, write_images=True,
+                                           histogram_freq=5000)
 
         with open(save_dir / "model_structure.json", "w") as model_struc_file:
             json.dump(self.model.to_json(), model_struc_file)
@@ -69,7 +71,7 @@ class BaseModel:
                                           epochs=epochs,
                                           batch_size=batch_size,
                                           validation_data=(val_features, val_labels),
-                                          callbacks=[early_stop_callback, save_callback],
+                                          callbacks=[early_stop_callback, save_callback, tensorboard_callback],
                                           verbose=verbose)
         except KeyboardInterrupt:
             print()
