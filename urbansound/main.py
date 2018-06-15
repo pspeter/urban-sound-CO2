@@ -17,9 +17,9 @@ if __name__ == "__main__":
     # mlp.visualize_training()
     # del mlp
 
-    cnn = CNNModel(data, [64, 64], dropout_probabilities=[0.5, 0.5])
+    cnn = CNNModel(data, [32, 64, 256, 512], dropout_probabilities=None, use_batch_norm=True)
     cnn.train(batch_size=32, epochs=50, verbose=1)
-    print(cnn.evaluate())
+    print("Metrics on held out test data:", cnn.evaluate())
     cnn.visualize_training()
     del cnn
 
