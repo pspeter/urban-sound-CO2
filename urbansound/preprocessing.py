@@ -37,27 +37,17 @@ class UrbanSoundData:
             extractor = UrbanSoundExtractor(data_dir)
             self.features = extractor.prepare_data(n_mfccs, n_augmentations)
 
-        self.train_short_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_short.csv"))
-        self.train_long_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_long.csv"))
+        self.train_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_long.csv"))
         self.test_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "test.csv"))
 
     @property
-    def train_data_short(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """ Returns four numpy arrays. The first two are train and test features, the second
-        two are train and test labels. It uses all samples from 'train_short.csv'.
-
-        :returns: train_features, test_features, train_labels, test_labels
-        """
-        raise NotImplementedError()
-
-    @property
-    def train_data_long(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def train_data(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """ Returns four numpy arrays. The first two are train and test features, the second
         two are train and test labels. It uses all samples from 'train_long.csv'.
 
         :returns: train_features, test_features, train_labels, test_labels
         """
-        features, labels = self._transform_data(self.train_long_labels)
+        features, labels = self._transform_data(self.train_labels)
         feature_train, feature_val, label_train, label_val = train_test_split(features, labels)
         # due to image augmentation, every id now has a list of one or more examples instead of
         # just one. All these examples have the same label, but instead of having one dimension

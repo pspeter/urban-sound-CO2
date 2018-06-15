@@ -40,11 +40,9 @@ class BaseModel:
             f"{self.__class__.__name__}_{now}".replace(":", "-")
 
     def train(self, batch_size: Optional[int] = 32, epochs: Optional[int] = 10,
-              short_data: Optional[bool] = False, verbose: int = 0):
-        if short_data:
-            train_features, val_features, train_labels, val_labels = self.data.train_data_short
-        else:
-            train_features, val_features, train_labels, val_labels = self.data.train_data_long
+              verbose: int = 0):
+
+        train_features, val_features, train_labels, val_labels = self.data.train_data
 
         train_features = self._process_features(train_features)
         val_features = self._process_features(val_features)
