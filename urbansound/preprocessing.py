@@ -2,6 +2,7 @@ import os
 import random
 import warnings
 from glob import glob
+from pathlib import Path
 from typing import Dict, List
 from typing import Tuple
 from zipfile import ZipFile
@@ -33,12 +34,24 @@ class UrbanSoundData:
         mfcc_path = os.path.join(self.data_dir, "mfcc", f"mfcc_{n_mfccs}_aug_{n_augmentations}.z")
         try:
             self.features: Dict[int, List[np.ndarray]] = joblib.load(mfcc_path)
+            self.train_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_long.csv"))
+            self.test_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "test.csv"))
         except FileNotFoundError:
             extractor = UrbanSoundExtractor(data_dir)
             self.features = extractor.prepare_data(n_mfccs, n_augmentations)
+            self.train_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_long.csv"))
+            self.test_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "test.csv"))
 
-        self.train_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "train_long.csv"))
-        self.test_labels: pd.DataFrame = pd.read_csv(os.path.join(self.data_dir, "labels", "test.csv"))
+        self.label_encoder = LabelEncoder()
+        self.oh_encoder = OneHotEncoder()
+
+    def inverse_transform(self, predictions: List[np.ndarray]):
+        labels = []
+        for prediction in predictions:
+            # reverse one-hot transform from here:
+            # stackoverflow.com/questions/22548731
+            int_label = prediction.dot(self.oh_encoder.active_features_).astype(int)
+            labels.append(self.label_encoder.inverse_transform(int_label))
 
     @property
     def train_data(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -95,14 +108,12 @@ class UrbanSoundData:
         :param label_data_frame: A data frame with an 'ID' and a 'Class' Column
         :return: List of input data and a list of corresponding labels
         """
-        label_encoder = LabelEncoder()
-        oh_encoder = OneHotEncoder()
 
         features = [(self.features[str(mfcc_id)]) for mfcc_id in label_data_frame.loc[:, "ID"]]
         features = np.stack(features)
 
-        number_labels = label_encoder.fit_transform(label_data_frame.loc[:, "Class"])
-        one_hot_labels = oh_encoder.fit_transform(number_labels.reshape(-1, 1))
+        number_labels = self.label_encoder.fit_transform(label_data_frame.loc[:, "Class"])
+        one_hot_labels = self.oh_encoder.fit_transform(number_labels.reshape(-1, 1))
         return features, one_hot_labels
 
 
@@ -162,8 +173,8 @@ class UrbanSoundExtractor:
     def _confirm_download() -> bool:
         print("Are you sure you want to download the data archive? (download size is about 1.8GB)")
         answer = ""
-        while not answer == "" and not answer.startswith("y") and not answer.startswith("n"):
-            answer = input("(y/[n]) >> ").lower()
+        while not answer.startswith("y") and not answer.startswith("n"):
+            answer = input("(y/n) >> ").lower()
 
         return answer.startswith("y")
 
@@ -201,7 +212,7 @@ class UrbanSoundExtractor:
         The results are saved into a compressed .z file in the mfcc subdirectory.
         """
         sound_dir = os.path.join(self.data_dir, "sounds")
-        mfcc_path = os.path.join(self.data_dir, "mfcc", f"mfcc_{n_mfccs}_aug_{n_augmentations}.z")
+        mfcc_path = Path(self.data_dir, "mfcc", f"mfcc_{n_mfccs}_aug_{n_augmentations}.z")
 
         if os.path.isfile(mfcc_path):
             print("MFCCs already extracted, skipping")
@@ -209,11 +220,12 @@ class UrbanSoundExtractor:
 
         n_cpu = os.cpu_count()
         tuples = Parallel(n_jobs=n_cpu)(
-            delayed(_extract_mfcc)(file, sound_dir, n_mfccs, n_augmentations)
+            delayed(_extract_mfcc)(file, n_mfccs, n_augmentations)
             for file in tqdm(glob(os.path.join(sound_dir, "*.wav")), desc="MFCC")
         )
 
         mfcc_dict = dict(tuples)
+        mfcc_path.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(mfcc_dict, mfcc_path)
 
         return mfcc_dict
@@ -221,10 +233,10 @@ class UrbanSoundExtractor:
 
 # needs to be a module top-level function to support multi-processing
 # don't move this function into a class
-def _extract_mfcc(file, sound_dir: str, n_mfccs: int,
-                  n_augmentations: int) -> Tuple[int, List[np.ndarray]]:
+def _extract_mfcc(file, n_mfccs: int,
+                  n_augmentations: int) -> Tuple[str, List[np.ndarray]]:
     max_sound_length = 173
-    sound_id = file[len(sound_dir + "/"):-len(".wav")]
+    sound_id = Path(file).stem
 
     audio, sample_rate = librosa.load(file)
 
@@ -235,6 +247,7 @@ def _extract_mfcc(file, sound_dir: str, n_mfccs: int,
         mfcc = librosa.feature.mfcc(sample, sample_rate, n_mfcc=n_mfccs)
         mfcc = librosa.util.fix_length(mfcc, max_sound_length)
         mfccs.append(mfcc)
+        
     return sound_id, mfccs
 
 
