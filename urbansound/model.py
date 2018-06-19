@@ -7,7 +7,7 @@ from typing import Tuple, Optional, Sequence
 
 import numpy as np
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard, Callback
-from keras.layers import Conv2D, MaxPooling2D, Flatten, Activation, Dropout, SimpleRNN
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Activation, Dropout, SimpleRNN, GRU
 from keras.layers import Dense, LSTM, BatchNormalization
 from keras.models import Sequential, Model
 
@@ -141,7 +141,7 @@ class BaseModel:
 
             with open(log_dir, "a") as fp:
                 fp.write(f"{self.name},{metrics['train_acc']},{metrics['test_acc']}"
-                         f",'{self.hidden_layer_sizes}','{self.dropout_probabilities}',"
+                         f',"{self.hidden_layer_sizes}","{self.dropout_probabilities}",'
                          f"{self.use_batch_norm},"
                          f"{self.train_seconds_per_sample}\n")
 
@@ -370,6 +370,57 @@ class RNNModel(BaseModel):
             model.add(SimpleRNN(self.hidden_layer_sizes[-1], input_shape=input_shape))
         else:
             model.add(SimpleRNN(self.hidden_layer_sizes[-1]))
+
+        if self.dropout_probabilities[-1]:
+            model.add(Dropout(self.dropout_probabilities[-1]))
+
+        model.add(Dense(NUM_CLASSES, activation="softmax"))
+        model.compile(optimizer="adam",
+                      loss="categorical_crossentropy",
+                      metrics=["categorical_accuracy"])
+        return model
+
+    def _process_features(self, features: np.ndarray) -> np.ndarray:
+        """For LSTMs, the input should be of shape (batch_size, time steps, input_dim).
+        That means we need to swap the 2nd and 3rd axis.
+        """
+        return np.swapaxes(features, 1, 2)
+
+
+class GRUModel(BaseModel):
+    def __init__(self, data: UrbanSoundData,
+                 hidden_layer_sizes: Sequence[int],
+                 dropout_probabilities: Optional[Sequence[Optional[float]]] = None,
+                 use_batch_norm: bool = False, model_name: str = None,
+                 log_tensorboard: bool = False, save_model: bool = True,
+                 overwrite: bool = False):
+
+        # LSTMs do not work well with batch norm
+        if use_batch_norm:
+            print("RNNs do not work with batch_norm, setting use_batch_norm to False")
+
+        super().__init__(data, hidden_layer_sizes,
+                         dropout_probabilities, False, model_name,
+                         log_tensorboard, save_model, overwrite)
+
+    def _model(self, input_shape: Tuple[int]) -> Model:
+        model = Sequential()
+
+        for layer_idx, (layer_size, dropout_proba) in enumerate(
+                zip(self.hidden_layer_sizes[:-1], self.dropout_probabilities[:-1])):
+            if layer_idx == 0:
+                model.add(GRU(layer_size, return_sequences=True,
+                               input_shape=input_shape))
+            else:
+                model.add(GRU(layer_size, return_sequences=True))
+
+            if dropout_proba:
+                model.add(Dropout(dropout_proba))
+
+        if len(self.hidden_layer_sizes) == 1:
+            model.add(GRU(self.hidden_layer_sizes[-1], input_shape=input_shape))
+        else:
+            model.add(GRU(self.hidden_layer_sizes[-1]))
 
         if self.dropout_probabilities[-1]:
             model.add(Dropout(self.dropout_probabilities[-1]))
