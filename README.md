@@ -19,16 +19,6 @@ Then, install the required packages using:
 
 Now you're all set!
 
-## Adding a new package
-
-You can use pip to install a new package:
-
-```pip install <package-name>```
-
-When doing so, always remember to update the requirements.txt by using the command
-
-```pip freeze > requirements.txt```
-
 ## Reference
 
 - [URBAN SOUND DATASETS](https://serv.cusp.nyu.edu/projects/urbansounddataset/index.html)
