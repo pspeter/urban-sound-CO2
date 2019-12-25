@@ -11,7 +11,7 @@ use the following command to create a new virtual environment:
 Afterwards, activate the environment using:
 
 *Windows*: ```venv\urbansound\Scripts\activate.bat```  
-*Mac*: ```source activate venv\urbansound\bin\activate```
+*Mac*: ```source venv\urbansound\bin\activate```
 
 Then, install the required packages using:
 
